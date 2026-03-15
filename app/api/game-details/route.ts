@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { NextResponse } from 'next/server';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -43,9 +43,16 @@ export async function GET(request: Request) {
       },
     });
 
-    const text = response.text;
+    let text = response.text;
     if (!text) {
         throw new Error("No response text from Gemini");
+    }
+
+    // Clean up markdown code blocks if present
+    if (text.startsWith('```json')) {
+        text = text.replace(/^```json\n/, '').replace(/\n```$/, '');
+    } else if (text.startsWith('```')) {
+        text = text.replace(/^```\n/, '').replace(/\n```$/, '');
     }
 
     return NextResponse.json(JSON.parse(text));

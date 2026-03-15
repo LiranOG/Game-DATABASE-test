@@ -10,6 +10,12 @@ interface FavoriteButtonProps {
 
 const FavoriteButton: React.FC<FavoriteButtonProps> = ({ gameId, className = '' }) => {
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
@@ -33,6 +39,8 @@ const FavoriteButton: React.FC<FavoriteButtonProps> = ({ gameId, className = '' 
     localStorage.setItem('favorites', JSON.stringify(newFavorites));
     setIsFavorite(!isFavorite);
   };
+
+  if (!isMounted) return null;
 
   return (
     <button

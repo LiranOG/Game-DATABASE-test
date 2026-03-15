@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Game, SortOption, SortDirection } from '@/app/types/game';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronDown, ChevronRight, HardDrive, Star, Calendar, Gamepad2, Folder, ArrowUp, ArrowDown, Sparkles, Clock } from 'lucide-react';
+import { ChevronDown, ChevronRight, HardDrive, Star, Calendar, Gamepad2, Folder, ArrowUp, ArrowDown, Sparkles } from 'lucide-react';
 import Image from 'next/image';
-import { GoogleGenAI, Type } from "@google/genai";
 
 interface GameListProps {
   games: Game[];
@@ -11,14 +10,6 @@ interface GameListProps {
   sortDirection: SortDirection;
   onSortChange: (option: SortOption) => void;
   onGameClick: (game: Game) => void;
-}
-
-interface EnrichedGameData {
-  description: string;
-  realGenre: string;
-  steamRating: number;
-  metacriticRating: number;
-  hltbTime: string;
 }
 
 const GameCoverImage = ({ src, alt, className, sizes, fallbackIconSize = 24 }: { src?: string, alt: string, className?: string, sizes?: string, fallbackIconSize?: number }) => {
@@ -45,89 +36,29 @@ const GameCoverImage = ({ src, alt, className, sizes, fallbackIconSize = 24 }: {
   );
 };
 
+const SortHeader = ({ label, field, sortBy, sortDirection, onSortChange, className = "" }: { label: string, field: SortOption, sortBy: SortOption, sortDirection: SortDirection, onSortChange: (option: SortOption) => void, className?: string }) => (
+  <div 
+    className={`hover:bg-zinc-800/50 cursor-pointer px-2 -mx-2 rounded flex items-center gap-1 select-none transition-colors ${className} ${sortBy === field ? 'text-zinc-200 font-semibold' : ''}`}
+    onClick={() => onSortChange(field)}
+  >
+    {label}
+    {sortBy === field && (
+      sortDirection === 'asc' ? <ArrowUp size={14} className="text-emerald-500" /> : <ArrowDown size={14} className="text-emerald-500" />
+    )}
+  </div>
+);
+
 const GameList: React.FC<GameListProps> = ({ games, sortBy, sortDirection, onSortChange, onGameClick }) => {
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
-  const [enrichedData, setEnrichedData] = useState<Record<string, EnrichedGameData>>({});
-  const [loadingEnrichment, setLoadingEnrichment] = useState<string | null>(null);
 
   const toggleGame = (id: string) => {
     setExpandedGameId(expandedGameId === id ? null : id);
   };
 
-  useEffect(() => {
-    const enrichGameData = async (gameId: string) => {
-      const game = games.find(g => g.id === gameId);
-      if (!game) return;
-  
-      setLoadingEnrichment(gameId);
-  
-      try {
-        const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-        if (!apiKey) {
-          console.warn("Gemini API Key missing");
-          return;
-        }
-  
-        const ai = new GoogleGenAI({ apiKey });
-        
-        const prompt = `Provide details for the game "${game.title}" (AppID: ${game.appid}). 
-        Return JSON with: 
-        - description (short summary, max 2 sentences)
-        - realGenre (specific sub-genre)
-        - steamRating (0-100 estimate)
-        - metacriticRating (0-100 estimate)
-        - hltbTime (estimated main story playtime, e.g. "15h")`;
-  
-        const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: prompt,
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                description: { type: Type.STRING },
-                realGenre: { type: Type.STRING },
-                steamRating: { type: Type.NUMBER },
-                metacriticRating: { type: Type.NUMBER },
-                hltbTime: { type: Type.STRING },
-              }
-            }
-          }
-        });
-  
-        if (response.text) {
-          const data = JSON.parse(response.text) as EnrichedGameData;
-          setEnrichedData(prev => ({ ...prev, [gameId]: data }));
-        }
-      } catch (error) {
-        console.error("Failed to enrich game data:", error);
-      } finally {
-        setLoadingEnrichment(null);
-      }
-    };
-
-    if (expandedGameId && !enrichedData[expandedGameId] && !loadingEnrichment) {
-      enrichGameData(expandedGameId);
-    }
-  }, [expandedGameId, enrichedData, loadingEnrichment, games]);
-
   const handlePlayClick = (e: React.MouseEvent, game: Game) => {
     e.stopPropagation();
     alert(`Launching ${game.title}...\n(This is a demo action)`);
   };
-
-  const SortHeader = ({ label, field, className = "" }: { label: string, field: SortOption, className?: string }) => (
-    <div 
-      className={`hover:bg-zinc-800/50 cursor-pointer px-2 -mx-2 rounded flex items-center gap-1 select-none transition-colors ${className} ${sortBy === field ? 'text-zinc-200 font-semibold' : ''}`}
-      onClick={() => onSortChange(field)}
-    >
-      {label}
-      {sortBy === field && (
-        sortDirection === 'asc' ? <ArrowUp size={14} className="text-emerald-500" /> : <ArrowDown size={14} className="text-emerald-500" />
-      )}
-    </div>
-  );
 
   return (
     <div className="w-full h-full overflow-auto custom-scrollbar bg-zinc-950 text-sm">
@@ -135,11 +66,11 @@ const GameList: React.FC<GameListProps> = ({ games, sortBy, sortDirection, onSor
         {/* Table Header */}
         <div className="sticky top-0 z-10 grid grid-cols-[40px_2fr_1fr_1fr_1fr_100px] gap-4 px-4 py-3 bg-zinc-900/95 backdrop-blur-sm border-b border-zinc-800 text-zinc-400 font-medium shadow-sm">
           <div className="flex justify-center">#</div>
-          <SortHeader label="Name" field="title" />
-          <SortHeader label="App ID" field="appid" />
-          <SortHeader label="Genre" field="genre" />
-          <SortHeader label="Release Date" field="year" />
-          <SortHeader label="Rating" field="rating" className="justify-end" />
+          <SortHeader label="Name" field="title" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
+          <SortHeader label="App ID" field="appid" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
+          <SortHeader label="Genre" field="genre" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
+          <SortHeader label="Release Date" field="year" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
+          <SortHeader label="Rating" field="rating" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} className="justify-end" />
         </div>
 
         {/* Table Body */}
@@ -234,31 +165,19 @@ const GameList: React.FC<GameListProps> = ({ games, sortBy, sortDirection, onSor
                               <Calendar size={14} /> {game.releaseYear || 'Unknown Year'}
                             </span>
                             <span className="flex items-center gap-1.5 bg-zinc-800/50 px-2.5 py-1 rounded-full border border-zinc-700/50">
-                              <Gamepad2 size={14} /> {enrichedData[game.id]?.realGenre || game.genre || 'Unknown Genre'}
+                              <Gamepad2 size={14} /> {game.genre || 'Unknown Genre'}
                             </span>
                             <span className="flex items-center gap-1.5 bg-zinc-800/50 px-2.5 py-1 rounded-full border border-zinc-700/50">
-                              <Star size={14} className="text-yellow-500" /> {enrichedData[game.id]?.steamRating || game.rating || 'N/A'}
+                              <Star size={14} className="text-yellow-500" /> {game.rating || 'N/A'}
                             </span>
-                            {enrichedData[game.id]?.hltbTime && (
-                              <span className="flex items-center gap-1.5 bg-zinc-800/50 px-2.5 py-1 rounded-full border border-zinc-700/50">
-                                <Clock size={14} className="text-blue-400" /> {enrichedData[game.id]?.hltbTime}
-                              </span>
-                            )}
                           </div>
                         </div>
 
                         {/* Description Section */}
                         <div className="bg-zinc-800/30 p-4 rounded-lg border border-zinc-800/50">
-                          {loadingEnrichment === game.id ? (
-                            <div className="flex items-center gap-2 text-zinc-500 animate-pulse">
-                              <Sparkles size={16} />
-                              <span>Generating insights with Gemini...</span>
-                            </div>
-                          ) : (
-                            <p className="text-zinc-300 leading-relaxed">
-                              {enrichedData[game.id]?.description || "No description available."}
+                            <p className="text-zinc-300 leading-relaxed italic">
+                              Detailed description coming soon...
                             </p>
-                          )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
@@ -283,13 +202,6 @@ const GameList: React.FC<GameListProps> = ({ games, sortBy, sortDirection, onSor
                               <div className={`w-2 h-2 rounded-full ${game.isInstalled ? 'bg-emerald-500' : 'bg-zinc-600'}`} />
                               {game.isInstalled ? 'Installed' : 'Not Installed'}
                             </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-auto pt-6 border-t border-zinc-800">
-                          <div className="text-zinc-500 text-sm flex items-center gap-2">
-                            <Sparkles size={14} className="text-purple-400" />
-                            <p className="italic">Data enriched by Gemini AI</p>
                           </div>
                         </div>
                       </div>

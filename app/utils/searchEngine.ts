@@ -1,3 +1,4 @@
+import Fuse from 'fuse.js';
 import { Game, RawGameData } from '@/app/types/game';
 
 export const cleanTitle = (foldername: string): string => {
@@ -55,7 +56,7 @@ export const hydrateGame = (raw: RawGameData): Game => {
   }
 
   return {
-    id: raw.appid === 'NONSTEAM' ? `ns-${raw["Number of game"]}` : raw.appid,
+    id: raw["Number of game"],
     title,
     originalFoldername: raw.foldername,
     appid: raw.appid,
@@ -70,22 +71,6 @@ export const hydrateGame = (raw: RawGameData): Game => {
 
 export const fuzzySearch = (query: string, games: Game[]): Game[] => {
   if (!query) return games;
-  
-  const lowerQuery = query.toLowerCase();
-  
-  return games.filter(game => {
-    const lowerTitle = game.title.toLowerCase();
-    
-    // Exact match or substring
-    if (lowerTitle.includes(lowerQuery)) return true;
-    
-    // Simple fuzzy: check if all characters of query exist in title in order
-    // This is a very basic fuzzy search. For better results, we'd use Levenshtein distance.
-    // Given the constraints, a robust "includes" is often better than a weak fuzzy.
-    // Let's stick to strict includes for performance on 1000 items, 
-    // but maybe allow for some typo tolerance if we had a library.
-    // For now, we'll just do substring matching as it's standard for "filtering".
-    
-    return false;
-  });
+  const fuse = new Fuse(games, { keys: ['title'], threshold: 0.4 });
+  return fuse.search(query).map(r => r.item);
 };
